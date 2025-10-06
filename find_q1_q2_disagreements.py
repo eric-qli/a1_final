@@ -73,7 +73,7 @@ def main():
     ap.add_argument("--gold", required=True)
     ap.add_argument("--q1", required=True, help="Transition-based outputs (.conllu)")
     ap.add_argument("--q2", required=True, help="Graph-based outputs (.conllu)")
-    ap.add_argument("--k", type=int, default=3, help="How many examples to print")
+    ap.add_argument("--k", type=int, default=10, help="How many examples to print")
     args = ap.parse_args()
 
     gold = read_conllu(args.gold)
