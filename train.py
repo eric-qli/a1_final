@@ -56,7 +56,6 @@ def q1(ctx):
     print(f'INITIALIZING{" debug mode" if debug else ""}')
     print(80 * '=')
     torch.manual_seed(1234)
-    print(f'Running on GPU: {torch.cuda.get_device_name()}.' if torch.cuda.is_available() else 'Running on CPU.')
     if torch.cuda.is_available():
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
         torch.cuda.manual_seed_all(1234)
@@ -101,7 +100,6 @@ def q1(ctx):
     weights_file = Path('weights-q1.pt')
     print('Best weights will be saved to:', weights_file)
     model = ParserModel(transducer, config, word_embeddings)
-    print("# parameters:", sum(p.numel() for p in model.parameters()))
     if torch.cuda.is_available():
         model = model.cuda()
     best_las = 0.
@@ -132,9 +130,7 @@ def q1(ctx):
         print(80 * '=')
         print('Restoring the best model weights found on the dev set.')
         model.load_state_dict(torch.load(str(weights_file)))
-        print("Testing on the test set... ", end='', flush=True)
         stdout.flush()
-        print('checkpoint')
         las, uas = model.evaluate(test_sents, test_arcs)
         if las:
             print(f'Test LAS: {las:.1%}', end='       ')

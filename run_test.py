@@ -72,15 +72,13 @@ def _test_next(name, pp, ex_next):
         "{} test resulted in next {}, expected {}".format(
             name, pp.sentence[pp.next], pp.sentence[ex_next])
 
-# _test_deps("0 leftmost (all)", pp, 0, None, (1,))
+
 def _test_deps(name, pp, stack_idx, n, ex_deps, left=True):
     """Test that dependants list of size n matches the expected deps"""
     if left:
         deps = pp.getNLeftMost(stack_idx, n=n)
     else:
         deps = pp.getNRightMost(stack_idx, n=n)
-
-
     assert tuple(deps) == tuple(ex_deps), \
         "{} test resulted in dependants {}, expected {}".format(
             name,
@@ -123,7 +121,6 @@ def test_leftmost_rightmost():
     """Simple tests for the PartialParse.getNLeftMost and rightmost
     Warning: these are not exhaustive
     """
-    print("Testing getNLeftMost and getNRightMost...")
     pp = PartialParse(
         [('word_' + str(x), 'tag_' + str(x)) for x in range(100)])
     pp.stack = [0, 2, 4, 8]
@@ -197,7 +194,6 @@ def test_minibatch_parse():
                   ('only', 'm'),
                   ('again', 'n')],
                  ]
-    print("Testing minibatch_parse...")
     arcs = minibatchParse(sentences, DummyModel(), 2)
     # bludgeon the arcs into PartialParse to remain compatible with _test_arcs
     partial_parses = []
@@ -285,11 +281,12 @@ def q1_e():
 @click.option('--dir-path', type=Path, default='/u/csc485h/fall/pub/a1')
 def q2(dir_path):
     '''Q2: Count projectives'''
+
     cfg = Q2Config()
     cfg.data_dir = dir_path / 'corpora'
     cfg.model_dir = dir_path / 'transformers'
-    print('Config:', cfg.data_dir)
-    print('Reading data...')
+
+    print('Reading data...', end=' ', flush=True)
     train, dev, test = UDData.read(cfg.data_dir, *cfg.ud_corpus)
     print('Done.', flush=True)
 

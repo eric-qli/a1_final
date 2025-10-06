@@ -1,6 +1,6 @@
-# Student name: Eric Li 
-# Student number: 1007654307
-# UTORid: lieric19
+# Student name: NAME
+# Student number: NUMBER
+# UTORid: ID
 
 '''
 This code is provided solely for the personal and private use of students
@@ -65,13 +65,8 @@ class ParserModel(nn.Module):
                self.dependencyRelationEmbedding
            (Don't use different variable names!)
         """
-        print('Creating embeddings11111...')
-        self.wordEmbedding = nn.Embedding.from_pretrained(wordEmbeddings, freeze=False)
-        print('Creating embeddings22222...')
-        self.tagEmbedding = nn.Embedding(self.config.n_tag_ids, self.config.embed_size)
-        print('Creating embeddings33333...')
-        self.dependencyRelationEmbedding = nn.Embedding(self.config.n_deprel_ids, self.config.embed_size)
-        print('Creating embeddings44444...')
+        # *** ENTER YOUR CODE BELOW *** #
+        
 
     def createNetLayers(self) -> None:
         """Create layer weights and biases for this neural network
@@ -100,16 +95,7 @@ class ParserModel(nn.Module):
         nn.Linear will take care of randomly initializing the weight and bias
         tensors automatically, so that's all that is to be done here.
         """
-        N = (self.config.n_word_features + 
-             self.config.n_tag_features + 
-             self.config.n_deprel_features)
-        
-        x = N * self.config.embed_size
-        h = self.config.hidden_size
-        c = self.config.n_classes
-
-        self.hiddenLayer = nn.Linear(x, h)
-        self.outputLayer = nn.Linear(h, c)
+        # *** ENTER YOUR CODE BELOW *** #
         
 
     def reshapeEmbedded(self, inputBatch: torch.Tensor) -> torch.Tensor:
@@ -138,8 +124,7 @@ class ParserModel(nn.Module):
            inputBatch.reshape(...) methods if you prefer.
         """
         # *** ENTER YOUR CODE BELOW *** #
-        B = inputBatch.shape[0]
-        reshapedBatch = inputBatch.reshape(B, -1)
+        
         return reshapedBatch
 
     def concatEmbeddings(self, wordIdBatch: torch.Tensor,
@@ -174,19 +159,7 @@ class ParserModel(nn.Module):
          - Concatenate the reshaped embedded inputs together using torch.cat to
            get the necessary shape specified above and return the result.
         """
-         # Look up embeddings
-        word_embedded = self.wordEmbedding(wordIdBatch) 
-        tag_embedded = self.tagEmbedding(tagIdBatch)
-        deprel_embedded = self.dependencyRelationEmbedding(dependencyRelationIdBatch)
-
-        # Reshape embeddings to (B, N * embed_size) each
-        word_flat = self.reshapeEmbedded(word_embedded)
-        tag_flat = self.reshapeEmbedded(tag_embedded)
-        deprel_flat = self.reshapeEmbedded(deprel_embedded)
-
-        # Concatenate along the feature dimension
-        reshaped = torch.cat([word_flat, tag_flat, deprel_flat], dim=1)
-
+        # *** ENTER YOUR CODE BELOW *** #
         return reshaped
 
     def forward(self,
@@ -232,13 +205,8 @@ class ParserModel(nn.Module):
         x = self.concatEmbeddings(torch.tensor(np.array(wordIdBatch)),
                                        torch.tensor(np.array(tagIdBatch)),
                                        torch.tensor(np.array(dependencyRelationIdBatch)))
+        # *** ENTER YOUR CODE BELOW *** #
         
-
-        h = self.hiddenLayer(x)
-        h_act = torch.relu(h)
-        h_drop = torch.dropout(h_act, p=self.config.dropout, train=self.training)
-        pred = self.outputLayer(h_drop)
-
         return pred
 
     def crossEntropyLoss(self, predictionBatch: torch.Tensor,
@@ -265,7 +233,8 @@ class ParserModel(nn.Module):
         Returns:
             loss: A 0d tensor (scalar) of dtype float
         """
-        loss = cross_entropy(predictionBatch, labelBatch)
+        # *** ENTER YOUR CODE BELOW *** #
+        
         return loss
 
     def add_optimizer(self):
@@ -274,9 +243,7 @@ class ParserModel(nn.Module):
         Creates an instance of the Adam optimizer and sets it as an attribute
         for this class.
         """
-        print('Adding optimizer...')
         self.optimizer = torch.optim.Adam(self.parameters(), self.config.lr)
-        print('Done.')
 
     def _fit_batch(self, wordIdBatch, tagIdBatch, dependencyRelationIdBatch,
                    labelBatch):
@@ -330,18 +297,12 @@ class ParserModel(nn.Module):
         return score_arcs(act_arcs, ex_arcs)
 
     def __init__(self, transducer, config, wordEmbeddings):
-        print('Initializing Q1 model...')
         self.transducer = transducer
         self.config = config
-        print('Config:', config)
+
         super().__init__()
-        print('Initializing Q1 model...')
-        print('Embeddings:', wordEmbeddings.shape)
 
         self.createEmbeddings(torch.from_numpy(wordEmbeddings))
-        print('Embeddings initialized.')
         self.createNetLayers()
-        print('Network layers initialized.')
 
         self.add_optimizer()
-        print('Optimizer initialized.')
