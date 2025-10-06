@@ -342,15 +342,13 @@ class GraphDepModel(nn.Module):
         W_Ld = self.label_d_W
         b_L = self.label_B
 
-        bilinear = torch.einsum('byd,Rdk,bxk->byxR', D_L, W_L, H_L)
+        bilinear = torch.einsum('byd,Rde,bxe->byxR', D_L, W_L, H_L)
 
-        head_aff = torch.einsum('bxk,Rk->bxR', H_L, W_Lh).unsqueeze(1)
-
+        head_aff = torch.einsum('bxd,Rd->bxR', H_L, W_Lh).unsqueeze(1)
         dep_aff = torch.einsum('byd,Rd->byR', D_L, W_Ld).unsqueeze(2)
-
         bias = b_L.view(1, 1, 1, -1)
 
-        label_scores = bilinear + head_aff + dep_aff + bias
+        label_scores = bilinear + head_aff + dep_aff + bias 
         return label_scores
     
 
