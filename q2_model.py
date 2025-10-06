@@ -1,6 +1,6 @@
-# Student name: NAME
-# Student number: NUMBER
-# UTORid: ID
+# Student name: Eric Li
+# Student number: 1007654307
+# UTORid: lieric19
 
 '''
 This code is provided solely for the personal and private use of students

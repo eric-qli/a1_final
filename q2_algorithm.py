@@ -1,6 +1,6 @@
-# Student name: NAME
-# Student number: NUMBER
-# UTORid: ID
+# Student name: Eric Li
+# Student number: 1007654307
+# UTORid: lieric19
 
 '''
 This code is provided solely for the personal and private use of students
@@ -119,7 +119,7 @@ def isSingleRoot(heads: Tensor, lengths: Tensor) -> Tensor:
 
     return tree_single_root
 
-def find_cycle(par: Tensor, root: int) -> list:
+def find_cycle(par, root, n):
     seen = torch.full((n,), -1, dtype=torch.long, device=par.device)
     # print("seen:", seen)
     cycle = []
@@ -295,6 +295,8 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
 
         # exit()
         # print("root:", root)
+
+        # assign best head to par
         for i in range(n):
             # print("&&&&&&&&&&&&&&&&&&&7")
             # print("i", i)
@@ -309,7 +311,7 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
         # exit()
 
         # check for cycle
-        cycle = find_cycle(par, root)
+        cycle = find_cycle(par, root, n)
         # print("%"*40)
         # print("cycle:", cycle)
         # exit()
@@ -319,6 +321,8 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
             # exit()
             return par  # no cycles 
 
+
+        # cyle found
         C = set(cycle)
         # print("C:", C)
 
@@ -337,6 +341,9 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
         w_in = {v: scores[v, par[v]].item() for v in C}
         # print("w_in:", w_in)
 
+
+        # copies entries from scores into a smaller matrix S_new, 
+        # excluding all rows and columns whose indices are in C.
         for i in range(n):
             if i in C:
                 continue
@@ -346,6 +353,7 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
                 S_new[new_index[i], new_index[j]] = scores[i, j]
         # print("S_new:", S_new)
         
+        # add edgee
         enter_arg = {}
         for a in range(n):
             if a in C:
@@ -362,6 +370,7 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
 
         # print("enter_arg:", enter_arg)
 
+        # found the strongest 
         for i in range(n):
             if i in C:
                 continue
@@ -463,6 +472,7 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
 
 
     return result_heads
+
 
 
 if __name__ == '__main__':
