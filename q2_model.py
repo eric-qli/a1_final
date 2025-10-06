@@ -132,7 +132,7 @@ class GraphDepModel(nn.Module):
         Returns:
             None
         """
-        cfg = self.config
+        cfg = self.cfg
         in_dim = self.pt_width
         dA = cfg.n_arcs
 
@@ -257,7 +257,7 @@ class GraphDepModel(nn.Module):
         Returns:
             None
         """
-        cfg = self.config
+        cfg = self.cfg
         in_dim = self.pt_width
         dL = cfg.n_labels
         R = self._n_deprels
