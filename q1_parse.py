@@ -1,6 +1,6 @@
-# Student name: NAME
-# Student number: NUMBER
-# UTORid: ID
+# Student name: Eric Li
+# Student number: 1007654307
+# UTORid: lieric19
 
 '''
 This code is provided solely for the personal and private use of students
@@ -74,7 +74,7 @@ class PartialParse(object):
 
         Assume that the PartialParse is valid
         """
-        # *** ENTER YOUR CODE BELOW *** #
+        return self.next == len(self.sentence) and self.stack == [0]
         
 
     def parseStep(self, transitionId, dependencyRelation=None):
@@ -95,7 +95,38 @@ class PartialParse(object):
             ValueError if transitionId is an invalid id or is illegal
                 given the current state
         """
-        # *** ENTER YOUR CODE BELOW *** #
+        if transitionId not in (self.LEFT_ARC_ID, self.RIGHT_ARC_ID, self.SHIFT_ID):
+            raise ValueError(f"Invalid transition id: {transitionId}")
+
+        # shift id 
+        if transitionId == self.SHIFT_ID:
+            if self.next >= len(self.sentence):
+                raise ValueError("SHIFT on empty buffer")
+            self.stack.append(self.next)
+            self.next += 1
+            return
+
+        if dependencyRelation is None:
+            raise ValueError("Arc transition requires a dependencyRelation label")
+        if len(self.stack) < 2:
+            raise ValueError("Arc transition requires at least two items on the stack")
+
+        top = self.stack[-1]
+        second = self.stack[-2]
+
+        # left arc
+        if transitionId == self.LEFT_ARC_ID:
+            if second == 0:
+                raise ValueError("LEFT-ARC cannot attach ROOT as dependent")
+            self.arcs.append((top, second, dependencyRelation))
+            self.stack.pop(-2)
+            return
+
+        # right arc
+        if top == 0:
+            raise ValueError("RIGHT-ARC cannot attach ROOT as dependent")
+        self.arcs.append((second, top, dependencyRelation))
+        self.stack.pop()
         
 
     def getNLeftMost(self, sentenceIndex, n=None):
@@ -117,9 +148,11 @@ class PartialParse(object):
                 with the leftmost @ 0, immediately right of leftmost @
                 1, etc.
         """
-        # *** ENTER YOUR CODE BELOW *** #
-        
-        return dependencyList
+        deps = [dep for (head, dep, _) in self.arcs if head == sentenceIndex]
+        deps.sort()
+        if n is None:
+            return deps
+        return deps[:n]
 
     def getNRightMost(self, sentenceIndex, n=None):
         """Returns a list of n rightmost dependants of word on the stack @ idx
@@ -140,9 +173,11 @@ class PartialParse(object):
                 with the rightmost @ 0, immediately left of rightmost @
                 1, etc.
         """
-        # *** ENTER YOUR CODE BELOW *** #
-        
-        return dependencyList
+        deps = [dep for (head, dep, _) in self.arcs if head == sentenceIndex and dep > sentenceIndex]
+        deps.sort(reverse=True)
+        if n is None:
+            return deps
+        return deps[:n]
 
     def getOracle(self, graph: DependencyGraph):
         """Given a projective dependency graph, determine an appropriate
@@ -197,9 +232,27 @@ class PartialParse(object):
         if self.complete:
             raise ValueError('PartialParse already completed')
         transition, dep_rel_label = -1, None
-        # *** ENTER YOUR CODE BELOW *** #
-        
-        return transition, dep_rel_label
+
+        if len(self.stack) < 2:
+            return self.SHIFT_ID, None
+
+        j = self.stack[-1]
+        i = self.stack[-2]
+
+        # Helper
+        def attached_deps(idx: int):
+            return {dep for (head, dep, _rel) in self.arcs if head == idx}
+
+        def all_gold_deps_attached(idx: int):
+            return attached_deps(idx) == set(getDependencies(idx, graph))
+
+        if getHead(i, graph) == j and all_gold_deps_attached(i):
+            return self.LEFT_ARC_ID, getDependencyRelation(i, graph)
+
+        if getHead(j, graph) == i and all_gold_deps_attached(j):
+            return self.RIGHT_ARC_ID, getDependencyRelation(j, graph)
+
+        return self.SHIFT_ID, None
 
     def parse(self, transitionDependencyPairs):
         """Applies the provided transitions/dependencyRelations to this PartialParse
@@ -248,8 +301,31 @@ def minibatchParse(sentences, model, batchSize):
             sentence. Ordering should be the same as in sentences (i.e.,
             arcs[i] should contain the arcs for sentences[i]).
     """
-    # *** ENTER YOUR CODE BELOW *** #
-    
+    partial_parses = [PartialParse(sent) for sent in sentences]
+    unfinished = partial_parses[:]
+
+    while unfinished:
+        batch = unfinished[:batchSize]
+
+        preds = model.predict(batch)
+
+        stuck = set()
+        for pp, (tid, rel) in zip(batch, preds):
+            try:
+                pp.parseStep(tid, rel)
+            except ValueError:
+                stuck.add(pp)
+
+        next_unfinished = []
+        for pp in unfinished:
+            if pp in stuck:
+                continue
+            if pp.complete:
+                continue
+            next_unfinished.append(pp)
+        unfinished = next_unfinished
+
+    arcs = [pp.arcs for pp in partial_parses]
     return arcs
 
 
