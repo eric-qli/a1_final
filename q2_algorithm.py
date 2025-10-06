@@ -108,18 +108,112 @@ def isSingleRoot(heads: Tensor, lengths: Tensor) -> Tensor:
     """
     B, L = heads.shape
 
-    # Mask out padding positions
+    # Mask out 
     mask = torch.arange(L, device=heads.device).unsqueeze(0) < lengths.unsqueeze(1)
 
-    # Count how many tokens take ROOT (0) as head
+    # Count 
     root_counts = ((heads == 0) & mask).sum(dim=1)
     
     tree_single_root = torch.ones_like(heads[:, 0], dtype=torch.bool)
-    
-    # Set entries to False where root count is not 1
     tree_single_root[root_counts != 1] = False
 
     return tree_single_root
+
+def find_cycle(par: Tensor, root: int) -> list:
+    seen = torch.full((n,), -1, dtype=torch.long, device=par.device)
+    # print("seen:", seen)
+    cycle = []
+    vid = 0
+    for i in range(n):
+        # print("i:", i )
+        if i == root:
+            continue
+        if seen[i] != -1:
+            continue
+        cur = i
+        path_index = {}
+        while cur != root and seen[cur] == -1:
+            path_index[cur] = len(path_index)
+            # print("path_index[cur]:", path_index[cur])
+            seen[cur] = vid
+            # print("seen[cur]:", seen[cur])
+            cur = par[cur].item()
+            if cur in path_index:  # found cycle
+                start = cur
+
+                cyc_nodes = [k for k, _ in sorted(path_index.items(), key=lambda x: x[1])]
+                start_pos = path_index[start]
+                cycle = cyc_nodes[start_pos:]
+                return cycle
+        vid += 1
+    return cycle  # empty if none
+
+
+def contract(n, C):
+    # print("###"*40)
+    # contract the cycle into a super-node
+    # map old indices -> new indices
+    new_index = {}
+    rev_index = []
+    c_idx = None
+    cnt = 0
+    # print("n:", n)
+    for v in range(n):
+        # print("V", v)
+        # print(C)
+        if v in C:
+            # print("in C")
+            if c_idx is None:
+                # print("c_idx is None")
+                # print("cnt:", cnt)  
+                c_idx = cnt
+                # print("before adding to new_index:", new_index)
+                new_index[v] = c_idx
+                # print("after adding to new_index:", new_index)
+                rev_index.append(v)  # representative for cycle
+                # print("after adding to rev_index:", rev_index)
+                cnt += 1
+                # print("cnt:", cnt)
+            else:
+                # print("c_idx is not None")
+                new_index[v] = c_idx 
+        else:
+            # print("not in C")
+            # print("new_index:", new_index)
+            new_index[v] = cnt
+            # print("new_index:", new_index)
+            rev_index.append(v)
+            # print("rev_index:", rev_index)
+            cnt += 1
+            # print("cnt:", cnt)
+
+    return cnt, new_index, c_idx, rev_index
+
+
+def expand(par, C, n, par_new, new_index, c_idx, scores, rev_index):
+    # Expand
+    par_exp = par.clone()
+
+    for i in range(n):
+        if i in C:
+            continue
+        pi_new = par_new[new_index[i]].item()
+        if pi_new == c_idx:
+            # (max over scores[i, v])
+            best_v = None
+            best_val = float('-inf')
+            for v in C:
+                val = scores[i, v].item()
+                if val > best_val:
+                    best_val = val
+                    best_v = v
+            par_exp[i] = best_v
+        else:
+            # head maps back directly
+            head_old = rev_index[pi_new]
+            par_exp[i] = head_old
+
+    return par_exp
 
 
 def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
@@ -215,31 +309,6 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
         # exit()
 
         # check for cycle
-        def find_cycle(par: Tensor, root: int) -> list:
-            seen = torch.full((n,), -1, dtype=torch.long, device=par.device)
-            cycle = []
-            vid = 0
-            for i in range(n):
-                if i == root:
-                    continue
-                if seen[i] != -1:
-                    continue
-                cur = i
-                path_index = {}
-                while cur != root and seen[cur] == -1:
-                    path_index[cur] = len(path_index)
-                    seen[cur] = vid
-                    cur = par[cur].item()
-                    if cur in path_index:  # found cycle
-                        start = cur
-
-                        cyc_nodes = [k for k, _ in sorted(path_index.items(), key=lambda x: x[1])]
-                        start_pos = path_index[start]
-                        cycle = cyc_nodes[start_pos:]
-                        return cycle
-                vid += 1
-            return cycle  # empty if none
-
         cycle = find_cycle(par, root)
         # print("%"*40)
         # print("cycle:", cycle)
@@ -253,45 +322,9 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
         C = set(cycle)
         # print("C:", C)
 
-        # print("###"*40)
-        # print("start contracting")
-        # exit()
-        # contract the cycle into a super-node
-        # map old indices -> new indices
-        new_index = {}
-        rev_index = []
-        c_idx = None
-        cnt = 0
-        # print("n:", n)
-        for v in range(n):
-            # print("V", v)
-            # print(C)
-            if v in C:
-                # print("in C")
-                if c_idx is None:
-                    # print("c_idx is None")
-                    # print("cnt:", cnt)  
-                    c_idx = cnt
-                    # print("before adding to new_index:", new_index)
-                    new_index[v] = c_idx
-                    # print("after adding to new_index:", new_index)
-                    rev_index.append(v)  # representative for cycle
-                    # print("after adding to rev_index:", rev_index)
-                    cnt += 1
-                    # print("cnt:", cnt)
-                else:
-                    # print("c_idx is not None")
-                    new_index[v] = c_idx 
-            else:
-                # print("not in C")
-                # print("new_index:", new_index)
-                new_index[v] = cnt
-                # print("new_index:", new_index)
-                rev_index.append(v)
-                # print("rev_index:", rev_index)
-                cnt += 1
-                # print("cnt:", cnt)
-
+        # contract
+        cnt, new_index, c_idx, rev_index = contract(n, C)
+        # print("cnt:", cnt)
         # print("new_index:", new_index)
         # # exit()
         # print("@"*20)
@@ -348,26 +381,7 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
         
 
         # Expand
-        par_exp = par.clone()
-
-        for i in range(n):
-            if i in C:
-                continue
-            pi_new = par_new[new_index[i]].item()
-            if pi_new == c_idx:
-                # (max over scores[i, v])
-                best_v = None
-                best_val = float('-inf')
-                for v in C:
-                    val = scores[i, v].item()
-                    if val > best_val:
-                        best_val = val
-                        best_v = v
-                par_exp[i] = best_v
-            else:
-                # head maps back directly
-                head_old = rev_index[pi_new]
-                par_exp[i] = head_old
+        par_exp = expand(par, C, n, par_new, new_index, c_idx, scores, rev_index)
 
         head_into_cycle_new = par_new[c_idx].item()
         head_into_cycle_old = rev_index[head_into_cycle_new]  # this is an old node outside or root
@@ -379,7 +393,6 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
 
     B, X, Y = arcTensor.shape
     # print("B, X, Y", B, X, Y)
-    assert X == Y, "arcTensor must be square in the last two dims"
 
     result_heads = torch.zeros((B, X), dtype=torch.long, device=arcTensor.device)
 
@@ -401,6 +414,7 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
         
         n = L + 1
         def count_root_children(h, n):
+            # returns absolute node ids in 1..n-1 whose head is 0
             return (h[1:n] == 0).nonzero(as_tuple=False).add(1).flatten().tolist()
         
         root_children = count_root_children(heads, n)
@@ -410,6 +424,8 @@ def mstSingleRoot(arcTensor: Tensor, lengths: Tensor) -> Tensor:
 
         guard = 0
         while len(root_children) > 1:
+            # deal with multiple root children
+
             # print("Multiple root children, enforcing single-root...")
             scores_to_root = S[root_children, 0]
             # print("scores_to_root", scores_to_root)
