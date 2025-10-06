@@ -3,6 +3,7 @@ import argparse, sys
 from typing import List, Tuple
 
 # ---- minimal CoNLL-U reader (no external libs) ----
+# replace your read_conllu with this more robust version
 def read_conllu(path: str):
     sents = []
     toks, heads, rels = [], [], []
@@ -17,16 +18,30 @@ def read_conllu(path: str):
             if line.startswith("#"):
                 continue
             cols = line.split("\t")
+            # Skip multiword tokens and empty nodes per CoNLL-U
             if "-" in cols[0] or "." in cols[0]:
-                # skip multiword tokens and empty nodes for simplicity
                 continue
-            i = int(cols[0])       # 1-based index (ROOT is implicit 0)
+            # ID must be numeric
+            try:
+                _ = int(cols[0])
+            except ValueError:
+                continue
+
             tok = cols[1]
-            head = int(cols[6])
-            rel  = cols[7]
+
+            # HEAD: coerce '_' (or anything non-int) to 0 (ROOT) to keep alignment
+            try:
+                head = int(cols[6])
+            except Exception:
+                head = 0  # fallback, avoids crash
+
+            # DEPREL: coerce '_' to a placeholder label
+            rel = cols[7] if cols[7] != "_" and cols[7] != "" else "dep"
+
             toks.append(tok)
             heads.append(head)
             rels.append(rel)
+
     if toks:
         sents.append({"tokens": toks, "heads": heads, "rels": rels})
     return sents
