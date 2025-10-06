@@ -466,8 +466,9 @@ class GraphDepModel(nn.Module):
         mask = torch.ones(shape, dtype=torch.bool, device=self.device)
 
         # 1) no self loops: disallow i == j
-        dep = torch.arange(Y).view(1, Y, 1, 1)
-        head = torch.arange(X).view(1, 1, X, 1)
+
+        dep = torch.arange(Y, device=self.device).view(1, Y, 1, 1)
+        head = torch.arange(X, device=self.device).view(1, 1, X, 1)
         mask &= (dep != head)
 
         # 2) ROOT cannot be a dependent: disallow i == 0
