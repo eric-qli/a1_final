@@ -65,13 +65,13 @@ class ParserModel(nn.Module):
                self.dependencyRelationEmbedding
            (Don't use different variable names!)
         """
-        print('Creating embeddings11111...')
+        # print('Creating embeddings11111...')
         self.wordEmbedding = nn.Embedding.from_pretrained(wordEmbeddings, freeze=False)
-        print('Creating embeddings22222...')
+        # print('Creating embeddings22222...')
         self.tagEmbedding = nn.Embedding(self.config.n_tag_ids, self.config.embed_size)
-        print('Creating embeddings33333...')
+        # print('Creating embeddings33333...')
         self.dependencyRelationEmbedding = nn.Embedding(self.config.n_deprel_ids, self.config.embed_size)
-        print('Creating embeddings44444...')
+        # print('Creating embeddings44444...')
         
 
     def createNetLayers(self) -> None:

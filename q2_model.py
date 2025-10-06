@@ -132,7 +132,36 @@ class GraphDepModel(nn.Module):
         Returns:
             None
         """
-        # *** ENTER YOUR CODE BELOW *** #
+        cfg = self.cfg
+        in_dim = self.pt_width
+        dA = cfg.n_arcs
+
+        self.arc_h_mlp = nn.Sequential(
+            nn.Linear(in_dim, dA),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+            nn.Linear(dA, dA),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+        )
+
+        self.arc_d_mlp = nn.Sequential(
+            nn.Linear(in_dim, dA),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+            nn.Linear(dA, dA),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+        )
+
+        self.arc_W = nn.Parameter(torch.empty(dA, dA))
+        self.arc_B = nn.Parameter(torch.empty(dA))
+
+        lower_bound = -sqrt(3.0 / cfg.n_arcs)
+        upper_bound = sqrt(3.0 / cfg.n_arcs)
+
+        nn.init.uniform_(self.arc_W, lower_bound, upper_bound)
+        nn.init.uniform_(self.arc_B, lower_bound, upper_bound)
         
 
     def scoreArcs(self, arcHead: Tensor, arcDependency: Tensor) -> Tensor:
@@ -168,8 +197,17 @@ class GraphDepModel(nn.Module):
             produce the correct ordering as specified above and in the
             assignment handout.
         """
-        # *** ENTER YOUR CODE BELOW *** #
-        
+        H = arcHead
+        D = arcDependency
+        W = self.arc_W
+        b = self.arc_B
+
+        bilinear = torch.einsum('byd,dk,bxk->byx', D, W, H)
+
+        head_bias = torch.einsum('bxk,k->bx', H, b).unsqueeze(1)
+
+        arc_tensor = bilinear + head_bias
+
         return arc_tensor
 
     def createLabelLayers(self) -> None:
@@ -219,7 +257,40 @@ class GraphDepModel(nn.Module):
         Returns:
             None
         """
-        # *** ENTER YOUR CODE BELOW *** #
+        cfg = self.cfg
+        in_dim = self.pt_width
+        dL = cfg.n_labels
+        R = self._n_deprels
+
+        self.label_h_mlp = nn.Sequential(
+            nn.Linear(in_dim, dL),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+            nn.Linear(dL, dL),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+        )
+
+        self.label_d_mlp = nn.Sequential(
+            nn.Linear(in_dim, dL),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+            nn.Linear(dL, dL),
+            nn.ReLU(),
+            nn.Dropout(cfg.dropout),
+        )
+
+        self.label_W = nn.Parameter(torch.empty(dL, dL, R))
+        self.label_h_W = nn.Parameter(torch.empty(dL, R))
+        self.label_d_W = nn.Parameter(torch.empty(dL, R))
+        self.label_B = nn.Parameter(torch.zeros(R))
+
+        lower_bound = -sqrt(3.0 / cfg.n_arcs)
+        upper_bound = sqrt(3.0 / cfg.n_arcs)
+
+        nn.init.uniform_(self.label_W, lower_bound, upper_bound)
+        nn.init.uniform_(self.label_h_W, lower_bound, upper_bound)
+        nn.init.uniform_(self.label_d_W, lower_bound, upper_bound)
         
 
     def scoreLabels(self, labelHead: Tensor, labelDependency: Tensor) -> Tensor:
@@ -258,9 +329,30 @@ class GraphDepModel(nn.Module):
             produce the correct ordering as specified above and in the
             assignment handout.
         """
-        # *** ENTER YOUR CODE BELOW *** #
-        
+        # labelHead corresponds to H_L,
+        # labelDependency corresponds to D_L,
+        # self.label_W corresponds to W_L,
+        # self.label_h_W corresponds to W_Lh,
+        # self.label_d_W corresponds to W_Ld, and
+        # self.label_B corresponds to b_L.
+        D_L = labelDependency
+        H_L = labelHead
+        W_L = self.label_W
+        W_Lh = self.label_h_W
+        W_Ld = self.label_d_W
+        b_L = self.label_B
+
+        bilinear = torch.einsum('byd,Rdk,bxk->byxR', D_L, W_L, H_L)
+
+        head_aff = torch.einsum('bxk,Rk->bxR', H_L, W_Lh).unsqueeze(1)
+
+        dep_aff = torch.einsum('byd,Rd->byR', D_L, W_Ld).unsqueeze(2)
+
+        bias = b_L.view(1, 1, 1, -1)
+
+        label_scores = bilinear + head_aff + dep_aff + bias
         return label_scores
+    
 
     @property
     def device(self) -> torch.device:
@@ -371,9 +463,22 @@ class GraphDepModel(nn.Module):
             and this question isn't worth very many marks, so don't overthink
             it!
         """
+        _, Y, X, _ = shape
+
         mask = torch.ones(shape, dtype=torch.bool, device=self.device)
-        # *** ENTER YOUR CODE BELOW *** #
-        
+
+        # 1) no self loops: disallow i == j
+        dep = torch.arange(Y).view(1, Y, 1, 1)
+        head = torch.arange(X).view(1, 1, X, 1)
+        mask &= (dep != head)
+
+        # 2) ROOT cannot be a dependent: disallow i == 0
+        mask[:, 0, :, :] = False
+
+        # 3) root relation (label=0) only allowed if head == 0
+        mask[:, :, :, 0] = False
+        mask[:, 1:, 0, 0] = True
+
         return mask
 
     def forward(self, inputs: Tensor) -> T.Tuple[Tensor, Tensor]:
